@@ -4,15 +4,21 @@ Custom-branded Metabase (OSS) with Atomtech logo, running on Docker with Postgre
 
 ## Quick Start
 
+You only need **Docker** and **Docker Compose**. Do NOT run the Dockerfile directly — `docker compose` handles everything (build + database + networking).
+
 ```bash
-# 1. Copy and edit environment variables
+# 1. Clone the repo
+git clone git@github.com:atomtechconsulting/metabase-branded.git
+cd metabase-branded
+
+# 2. Copy and edit environment variables
 cp .env.example .env
 # Edit .env with secure values (see "Generate Secrets" below)
 
-# 2. Build and start
+# 3. Build and start (one command does it all)
 docker compose up --build -d
 
-# 3. Wait for startup (60-90s on first run)
+# 4. Wait for startup (60-90s on first run)
 docker compose logs -f metabase
 ```
 
