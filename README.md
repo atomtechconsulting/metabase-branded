@@ -39,21 +39,46 @@ openssl rand -hex 32
 
 ## Upgrade Metabase Version
 
-1. Check [Metabase releases](https://github.com/metabase/metabase/releases) for the new version
-2. Review changelog for any frontend asset path changes
-3. Update the version in `Dockerfile`:
-   ```dockerfile
-   FROM metabase/metabase:v0.XX.X
-   ```
-4. Verify JAR paths still exist (the Dockerfile will fail-fast if they changed):
+Dependabot checks weekly for new Metabase images and opens a PR automatically.
+
+### When Dependabot opens a PR (build passes)
+
+Patches still work with the new version. Merge and deploy:
+
+```bash
+docker compose up --build -d
+```
+
+Run the smoke test below to confirm branding.
+
+### When Dependabot opens a PR (build fails)
+
+The grep verification in `patch-branding.sh` caught a breaking change. Fix manually:
+
+1. Inspect the new JS bundle structure:
    ```bash
-   docker compose build
+   docker run --rm metabase/metabase:vX.X.X sh -c \
+     "unzip -l /app/metabase.jar | grep -E 'app-(public|embed|main).*\.(js|css)'"
    ```
-5. If build succeeds, deploy:
+2. Extract the badge code to find new minified variable names:
    ```bash
+   docker run --rm metabase/metabase:vX.X.X sh -c \
+     "unzip -p /app/metabase.jar 'frontend_client/app/dist/app-public.*.js'" \
+     | grep -oE '.{100}powered_by_metabase.{100}'
+   ```
+3. Update the sed patterns in `patch-branding.sh` to match the new variable names
+4. Get the new image digest:
+   ```bash
+   docker pull metabase/metabase:vX.X.X
+   docker inspect --format='{{index .RepoDigests 0}}' metabase/metabase:vX.X.X
+   ```
+5. Update `Dockerfile` with the new digest
+6. Build and test:
+   ```bash
+   docker compose build --no-cache
    docker compose up -d
    ```
-6. Run the smoke test (below) to confirm branding
+7. Run the smoke test below
 
 ## Verify Branding (Smoke Test)
 
