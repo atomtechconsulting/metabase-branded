@@ -14,7 +14,7 @@ for JS_FILE in $(unzip -l "$JAR" | grep -oE 'frontend_client/app/dist/app-(publi
 
   # All three replacements in a single sed pass
   sed -i \
-    -e 's|https://www.metabase.com?utm_medium=referral&utm_source=product&utm_campaign=powered_by_metabase&utm_content=${t}|https://atomtech.es/servicios/analitica-datos|g' \
+    -e 's|https://www.metabase.com?utm_medium=referral&utm_source=product&utm_campaign=powered_by_metabase&utm_content=${t}|https://www.atomtech.es/servicios/analitica-datos?utm_source=metabase&utm_medium=embed&utm_campaign=analitica-datos|g' \
     -e 's|"aria-label":"Metabase"|"aria-label":"Atomtech"|g' \
     -e 's|(0,l\.jsx)(c\.A,{height:32,"aria-label":"Atomtech"})|(0,l.jsxs)("span",{style:{display:"inline-flex",alignItems:"center",gap:"4px"},children:[(0,l.jsx)("img",{src:"/app/assets/img/logo.svg",alt:"Atomtech",style:{height:"22px",filter:"brightness(0) saturate(100%) invert(39%) sepia(7%) saturate(538%) hue-rotate(173deg)"}}),(0,l.jsx)("span",{style:{fontWeight:700,fontSize:"14px"},children:"Atomtech"})]})|g' \
     "$STAGING/$JS_FILE"
