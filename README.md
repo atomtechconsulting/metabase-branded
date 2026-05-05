@@ -1,10 +1,10 @@
 # Metabase Atomtech
 
-Custom-branded Metabase (OSS) with Atomtech logo, running on Docker with PostgreSQL.
+Custom-branded Metabase (OSS) with Atomtech logo. Ships only the Metabase app — the **PostgreSQL backing database is provisioned and managed separately** (Coolify resource, RDS, managed Postgres, etc.).
 
 ## Quick Start
 
-You only need **Docker** and **Docker Compose**. Do NOT run the Dockerfile directly — `docker compose` handles everything (build + database + networking).
+You need **Docker**, **Docker Compose**, and a reachable **PostgreSQL 12+** instance with an empty database that `MB_DB_USER` can write to.
 
 ```bash
 # 1. Clone the repo
@@ -13,12 +13,12 @@ cd metabase-branded
 
 # 2. Copy and edit environment variables
 cp .env.example .env
-# Edit .env with secure values (see "Generate Secrets" below)
+# Edit .env with your external DB connection + secure secrets (see "Generate Secrets")
 
-# 3. Build and start (one command does it all)
+# 3. Build and start
 docker compose up --build -d
 
-# 4. Wait for startup (60-90s on first run)
+# 4. Wait for startup (60-90s on first run while Metabase migrates the schema)
 docker compose logs -f metabase
 ```
 
@@ -27,7 +27,7 @@ Once healthy, open **http://localhost:3001** and complete the setup wizard.
 ## Generate Secrets
 
 ```bash
-# Database password
+# Database password (set the same value on the external Postgres)
 openssl rand -hex 16
 
 # Encryption key (CRITICAL — back this up separately!)
@@ -38,10 +38,24 @@ openssl rand -hex 32
 
 | Variable | Description |
 |---|---|
-| `MB_DB_USER` | PostgreSQL username |
+| `MB_DB_HOST` | Hostname of the external PostgreSQL server |
+| `MB_DB_PORT` | PostgreSQL port (default `5432`) |
+| `MB_DB_DBNAME` | Database name (default `metabase`) |
+| `MB_DB_USER` | PostgreSQL username with rights on `MB_DB_DBNAME` |
 | `MB_DB_PASS` | PostgreSQL password |
 | `MB_SITE_URL` | Public URL (for email links and embeds) |
 | `MB_ENCRYPTION_SECRET_KEY` | Encrypts stored DB credentials in Metabase |
+
+## Provisioning the external database
+
+Metabase needs an empty database and a user that owns it. On the external Postgres:
+
+```sql
+CREATE USER metabase WITH PASSWORD '<MB_DB_PASS>';
+CREATE DATABASE metabase OWNER metabase;
+```
+
+In Coolify, create a **PostgreSQL** resource and attach it to the same project/network as this app so the Metabase container can reach it via the resource's internal hostname (use that hostname as `MB_DB_HOST`).
 
 ## Upgrade Metabase Version
 
@@ -101,27 +115,25 @@ curl -sI http://localhost:3001/favicon.ico | grep "200 OK"
 
 ## Backup & Restore
 
-### Backup
+The application database lives in the external Postgres — back it up with whatever procedure that resource provides (Coolify's scheduled backups, `pg_dump`, managed snapshots, etc.). Example:
 
 ```bash
-# Database dump
-docker exec metabase-atomtech-metabase-db-1 \
-  pg_dump -U metabase metabase > metabase-backup-$(date +%Y%m%d).sql
+PGPASSWORD="$MB_DB_PASS" pg_dump \
+  -h "$MB_DB_HOST" -p "$MB_DB_PORT" -U "$MB_DB_USER" "$MB_DB_DBNAME" \
+  > metabase-backup-$(date +%Y%m%d).sql
 ```
 
-**CRITICAL**: Also back up your `MB_ENCRYPTION_SECRET_KEY` from `.env`. Without it, all saved data source connections in Metabase are **permanently irrecoverable**.
+**CRITICAL**: Also back up your `MB_ENCRYPTION_SECRET_KEY` from `.env`. Without it, all saved data source connections in Metabase are **permanently irrecoverable**, even with a full DB dump.
 
 ### Restore
 
 ```bash
-# Stop Metabase (keep DB running)
 docker compose stop metabase
 
-# Restore database
-cat metabase-backup-YYYYMMDD.sql | \
-  docker exec -i metabase-atomtech-metabase-db-1 psql -U metabase metabase
+PGPASSWORD="$MB_DB_PASS" psql \
+  -h "$MB_DB_HOST" -p "$MB_DB_PORT" -U "$MB_DB_USER" "$MB_DB_DBNAME" \
+  < metabase-backup-YYYYMMDD.sql
 
-# Start Metabase
 docker compose start metabase
 ```
 
@@ -129,7 +141,7 @@ docker compose start metabase
 
 **Metabase won't start / health check fails:**
 - First run takes 60-90s for DB schema init. Check logs: `docker compose logs -f metabase`
-- Verify PostgreSQL is healthy: `docker compose ps`
+- Confirm the container can resolve `MB_DB_HOST` and reach `MB_DB_PORT`
 
 **Logo not showing / still Metabase logo:**
 - Rebuild: `docker compose build --no-cache`
@@ -139,9 +151,10 @@ docker compose start metabase
 - Increase memory limit in `docker-compose.yml` under `deploy.resources.limits.memory`
 - Increase JVM heap: change `JAVA_OPTS: "-Xmx1g"` to `-Xmx2g`
 
-**Database connection refused:**
-- Ensure `metabase-db` container is healthy: `docker compose ps`
-- Check DB logs: `docker compose logs metabase-db`
+**Database connection refused / authentication failed:**
+- From the host: `psql "host=$MB_DB_HOST port=$MB_DB_PORT user=$MB_DB_USER dbname=$MB_DB_DBNAME"`
+- In Coolify, verify the Postgres resource and the Metabase app are on the same internal network
+- Check the Postgres `pg_hba.conf` allows connections from the app subnet
 
 ## Known Limitations (OSS)
 
@@ -162,10 +175,12 @@ metabase-atomtech/
 │   └── loading_favicon.gif   # Browser tab icon during query execution
 ├── Dockerfile        # JAR surgery: extracts metabase.jar, replaces assets, repacks
 ├── docker-compose.yml
-├── .env              # Secrets (gitignored)
+├── .env              # Secrets + external DB connection (gitignored)
 ├── .env.example      # Template
 └── .gitignore
 ```
+
+The PostgreSQL backing database is **not** part of this repo — provision it as a separate Coolify resource (or any managed Postgres) and point `MB_DB_HOST` at it.
 
 ## License
 
