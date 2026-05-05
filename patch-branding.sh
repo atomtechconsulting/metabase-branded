@@ -20,7 +20,7 @@ for JS_FILE in $(unzip -l "$JAR" | grep -oE 'frontend_client/app/dist/app-(publi
     "$STAGING/$JS_FILE"
 
   # Verify each patch actually applied (sed exits 0 even on no match)
-  grep -q 'atomtech.es/servicios/analitica-de-datos' "$STAGING/$JS_FILE" || \
+  grep -q 'atomtech.es/servicios/analitica-datos' "$STAGING/$JS_FILE" || \
     { echo "ERROR: Badge URL patch did not apply to $JS_FILE"; exit 1; }
   grep -q 'src:"/app/assets/img/logo.svg"' "$STAGING/$JS_FILE" || \
     { echo "ERROR: Logo component patch did not apply to $JS_FILE"; exit 1; }
