@@ -9,21 +9,22 @@ services:
       - "3001:3000"
     environment:
       MB_DB_TYPE: postgres
-      MB_DB_HOST: ${MB_DB_HOST}
+      MB_DB_HOST: ${MB_DB_HOST:?MB_DB_HOST is required (hostname of the external Postgres)}
       MB_DB_PORT: ${MB_DB_PORT:-5432}
       MB_DB_DBNAME: ${MB_DB_DBNAME:-metabase}
-      MB_DB_USER: ${MB_DB_USER}
-      MB_DB_PASS: ${MB_DB_PASS}
+      MB_DB_USER: ${MB_DB_USER:?MB_DB_USER is required}
+      MB_DB_PASS: ${MB_DB_PASS:?MB_DB_PASS is required}
       MB_SITE_NAME: "Atomtech Analytics"
-      MB_SITE_URL: ${MB_SITE_URL}
+      MB_SITE_URL: ${MB_SITE_URL:?MB_SITE_URL is required}
       JAVA_TIMEZONE: Atlantic/Canary
-      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY}
+      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY:?MB_ENCRYPTION_SECRET_KEY is required (openssl rand -hex 32)}
       JAVA_OPTS: "-Xmx1g -Xms512m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
     healthcheck:
       test: curl --fail --silent -I http://localhost:3000/api/health || exit 1
       interval: 15s
       timeout: 5s
       retries: 10
+      start_period: 120s
     restart: unless-stopped
     deploy:
       resources:
